@@ -2,12 +2,21 @@
 
 # Environment Variables
 WORLD_SIZE=1
-NPROC_PER_NODE=8
+NPROC_PER_NODE=${NPROC_PER_NODE:-$(nvidia-smi -L 2>/dev/null | wc -l)}
 MASTER_PORT=6668
 RANK=0
 
-llama_ckpt_path=/dockerdata/Llama-2-7b-chat-hf
-YOUR_CKPT_PARH=AVE_checkpoint
+llama_ckpt_path=/nethome/rkhan96/flash/weights/Llama-2-7b-chat-hf
+YOUR_CKPT_PARH=${YOUR_CKPT_PARH:-$(ls -dt results/finetune/llama_ave/checkpoint-* 2>/dev/null | head -n 1)}
+
+if [ "$NPROC_PER_NODE" -le 0 ]; then
+    NPROC_PER_NODE=1
+fi
+
+if [ -z "$YOUR_CKPT_PARH" ]; then
+    echo "No checkpoint found. Set YOUR_CKPT_PARH manually."
+    exit 1
+fi
 
 # Training Arguments
 LOCAL_BATCH_SIZE=1
@@ -46,12 +55,11 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --ave_task True \
     --visual_branch True \
     --video_frame_nums 10 \
-    --vit_ckpt_path /dockerdata/clip-vit-large-patch14 \
+    --vit_ckpt_path /nethome/rkhan96/flash/weights/clip-vit-large-patch14 \
     --image_size 224 \
     --patch_size 14 \
     --visual_query_token_nums 32 \
     --audio_branch True \
-    --BEATs_ckpt_path /dockerdata/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
+    --BEATs_ckpt_path /nethome/rkhan96/flash/weights/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
     --audio_query_token_nums 32 \
     --output_dir 'not_used' \
-

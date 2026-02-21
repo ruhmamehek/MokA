@@ -2,11 +2,15 @@
 
 # Environment Variables
 WORLD_SIZE=1
-NPROC_PER_NODE=8
+NPROC_PER_NODE=${NPROC_PER_NODE:-$(nvidia-smi -L 2>/dev/null | wc -l)}
 MASTER_PORT=6666
 RANK=0
 
-llama_ckpt_path=/dockerdata/Llama-2-7b-chat-hf
+if [ "$NPROC_PER_NODE" -le 0 ]; then
+    NPROC_PER_NODE=1
+fi
+
+llama_ckpt_path=/nethome/rkhan96/flash/weights/Llama-2-7b-chat-hf
 
 # Training Arguments
 LOCAL_BATCH_SIZE=4
@@ -16,7 +20,14 @@ GLOBAL_BATCH_SIZE=$WORLD_SIZE*$NPROC_PER_NODE*$LOCAL_BATCH_SIZE*$GRADIENT_ACCUMU
 # Log Arguments
 export TRANSFORMERS_OFFLINE=1
 export WANDB_PROJECT=finetune
-RUN_NAME=llama_ave
+GRAD_SENS_RUN=${GRAD_SENS_RUN:-0}
+if [ -z "${RUN_NAME:-}" ]; then
+    if [ "$GRAD_SENS_RUN" = "1" ]; then
+        RUN_NAME=llama_ave_gradsens
+    else
+        RUN_NAME=llama_ave
+    fi
+fi
 OUTP_DIR=results
 export TOKENIZERS_PARALLELISM='true'
 export ASCEND_LAUNCH_BLOCKING='1'
@@ -38,7 +49,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --lora_dropout 0.05 \
     --blc_weight 1 \
     --blc_alpha 1 \
-    --bf16 True \
+    --bf16 False \
     --tf32 False \
     --fp16 False \
     --avqa_task False \
@@ -46,13 +57,13 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --save_modules vl_projector,al_projector,lora \
     --visual_branch True \
     --video_frame_nums 10 \
-    --vit_ckpt_path /dockerdata/clip-vit-large-patch14 \
+    --vit_ckpt_path /nethome/rkhan96/flash/weights/clip-vit-large-patch14 \
     --select_feature patch \
     --image_size 224 \
     --patch_size 14 \
     --visual_query_token_nums 32 \
     --audio_branch True \
-    --BEATs_ckpt_path /dockerdata/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
+    --BEATs_ckpt_path /nethome/rkhan96/flash/weights/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
     --audio_query_token_nums 32 \
     --output_dir $OUTP_DIR/$WANDB_PROJECT/$RUN_NAME \
     --num_train_epochs 3 \
@@ -72,4 +83,6 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --gradient_checkpointing True \
     --half_precision_backend "auto" \
     --dataloader_num_workers 4 \
+    --grad_sensitivity_enable True \
+    --grad_sensitivity_include_projectors True \
     --report_to tensorboard \

@@ -106,3 +106,9 @@ class TrainingArguments(transformers.TrainingArguments):
     save_modules: str = field(default='vl_projector,al_projector,lora')
 
     exp_desc: str = field(default='exp')
+
+    # Gradient sensitivity analysis toggles.
+    # When enabled, UnifiedTrainer logs per-modality gradient statistics for
+    # LoRA branches (text/visual/audio A, shared B) and optional projectors.
+    grad_sensitivity_enable: bool = field(default=False)
+    grad_sensitivity_include_projectors: bool = field(default=True)
