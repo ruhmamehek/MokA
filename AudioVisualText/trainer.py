@@ -242,19 +242,19 @@ class UnifiedTrainer(Trainer):
             if group is None:
                 continue
             if group not in accum:
-                accum[group] = {"g2": 0.0, "p2": 0.0, "n": 0}
+                accum[group] = {"p2": 0.0, "n": 0}
 
             # Parameter norm is always tracked when present for scale reference.
             p = param.detach().float()
             accum[group]["p2"] += float((p * p).sum().item())
             accum[group]["n"] += int(param.numel())
 
-            # Gradient norm comes from backward hooks (more robust in ZeRO setups).
-            accum[group]["g2"] += float(self._grad_sens_step_g2.get(group, 0.0))
-
         metrics = {}
         for group, vals in accum.items():
-            grad_norm = vals["g2"] ** 0.5
+            # Gradient norm comes from backward hooks (more robust in ZeRO setups).
+            # NOTE: hook accumulation is already per-group, so read it once here.
+            g2 = float(self._grad_sens_step_g2.get(group, 0.0))
+            grad_norm = g2 ** 0.5
             param_norm = vals["p2"] ** 0.5
             rel_grad_norm = grad_norm / (param_norm + eps)
             metrics[f"grad_sens/{group}_grad_norm"] = grad_norm
