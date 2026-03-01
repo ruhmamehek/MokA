@@ -18,6 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 from decord import VideoReader
 from transformers import CLIPImageProcessor
 import warnings
+import debugpy
 
 warnings.filterwarnings("ignore")
 from dataset.audio_processor import preprocess
@@ -53,6 +54,7 @@ class UnifiedDataset(Dataset):
             self.add_ave_task_samples()
         
         print(f'tot training sample nums: {self.tot}')
+        debugpy.breakpoint()
 
 
     def add_avqa_task_samples(self):

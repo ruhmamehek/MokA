@@ -49,7 +49,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --lora_dropout 0.05 \
     --blc_weight 1 \
     --blc_alpha 1 \
-    --bf16 False \
+    --bf16 True \
     --tf32 False \
     --fp16 False \
     --avqa_task False \

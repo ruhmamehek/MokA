@@ -236,6 +236,9 @@ class UnifiedTrainer(Trainer):
 
     def _collect_grad_sensitivity(self, model: nn.Module) -> Mapping[str, float]:
         eps = 1e-12
+        # Floor used to stabilize relative-grad metric when a group starts near zero
+        # (e.g., LoRA B matrices initialized to zeros).
+        param_norm_floor = float(getattr(self.args, "grad_sensitivity_param_norm_floor", 1e-2))
         accum = {}
         for name, param in model.named_parameters():
             group = self._grad_group_name(name)
@@ -256,10 +259,17 @@ class UnifiedTrainer(Trainer):
             g2 = float(self._grad_sens_step_g2.get(group, 0.0))
             grad_norm = g2 ** 0.5
             param_norm = vals["p2"] ** 0.5
+            # Size-normalized gradient scale (independent of parameter magnitude).
+            grad_rms = grad_norm / ((vals["n"] ** 0.5) + eps)
+            # Original relative gradient norm.
             rel_grad_norm = grad_norm / (param_norm + eps)
+            # Stabilized relative metric to reduce denominator-near-zero inflation.
+            rel_grad_norm_floored = grad_norm / (max(param_norm, param_norm_floor) + eps)
             metrics[f"grad_sens/{group}_grad_norm"] = grad_norm
+            metrics[f"grad_sens/{group}_grad_rms"] = grad_rms
             metrics[f"grad_sens/{group}_param_norm"] = param_norm
             metrics[f"grad_sens/{group}_relative_grad_norm"] = rel_grad_norm
+            metrics[f"grad_sens/{group}_relative_grad_norm_floored"] = rel_grad_norm_floored
             metrics[f"grad_sens/{group}_num_params"] = float(vals["n"])
         return metrics
 
