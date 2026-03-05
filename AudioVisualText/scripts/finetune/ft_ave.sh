@@ -20,14 +20,19 @@ GLOBAL_BATCH_SIZE=$WORLD_SIZE*$NPROC_PER_NODE*$LOCAL_BATCH_SIZE*$GRADIENT_ACCUMU
 # Log Arguments
 export TRANSFORMERS_OFFLINE=1
 export WANDB_PROJECT=finetune
+export CROSS_ATTN_KV_MODE=${CROSS_ATTN_KV_MODE:-question}
+MODEL_NAME=${MODEL_NAME:-llama2}
+DATASET=${DATASET:-ave}
+PRECISION=${PRECISION:-bf16}
 GRAD_SENS_RUN=${GRAD_SENS_RUN:-0}
-if [ -z "${RUN_NAME:-}" ]; then
-    if [ "$GRAD_SENS_RUN" = "1" ]; then
-        RUN_NAME=llama_ave_gradsens
-    else
-        RUN_NAME=llama_ave
-    fi
-fi
+BLC_WEIGHT=${BLC_WEIGHT:-1}
+# Run dir: model_dataset_precision_question|full_text_[gradsense_]bwN_date_time
+RUN_NAME="${MODEL_NAME}_${DATASET}_${PRECISION}_${CROSS_ATTN_KV_MODE}"
+[ "$GRAD_SENS_RUN" = "1" ] && RUN_NAME="${RUN_NAME}_gradsense"
+RUN_NAME="${RUN_NAME}_bw${BLC_WEIGHT}_$(date +%Y%m%d_%H%M%S)"
+export RUN_NAME
+echo "Output directory: $OUTP_DIR/$WANDB_PROJECT/$RUN_NAME"
+DEEPSPEED_CONFIG=${DEEPSPEED_CONFIG:-deepspeed/stage2-offload.json}
 OUTP_DIR=results
 export TOKENIZERS_PARALLELISM='true'
 export ASCEND_LAUNCH_BLOCKING='1'
@@ -35,10 +40,11 @@ export ASCEND_LAUNCH_BLOCKING='1'
 torchrun --nproc_per_node $NPROC_PER_NODE \
     --master_port $MASTER_PORT \
     scripts/finetune/finetune.py \
-    --deepspeed deepspeed/stage2-offload.json \
+    --deepspeed $DEEPSPEED_CONFIG \
     --llm_name llama \
     --reserved_modality None \
     --loramethod train \
+    --cross_attn_kv_mode $CROSS_ATTN_KV_MODE \
     --model_name_or_path $llama_ckpt_path \
     --exp_desc "baseline" \
     --freeze_backbone True \
@@ -47,9 +53,9 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --lora_r 444 \
     --lora_alpha 16 \
     --lora_dropout 0.05 \
-    --blc_weight 1 \
+    --blc_weight $BLC_WEIGHT \
     --blc_alpha 1 \
-    --bf16 True \
+    --bf16 $([ "$PRECISION" = "bf16" ] && echo True || echo False) \
     --tf32 False \
     --fp16 False \
     --avqa_task False \
@@ -83,6 +89,6 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --gradient_checkpointing True \
     --half_precision_backend "auto" \
     --dataloader_num_workers 4 \
-    --grad_sensitivity_enable True \
-    --grad_sensitivity_include_projectors True \
+    --grad_sensitivity_enable $([ "$GRAD_SENS_RUN" = "1" ] && echo True || echo False) \
+    --grad_sensitivity_include_projectors $([ "$GRAD_SENS_RUN" = "1" ] && echo True || echo False) \
     --report_to tensorboard \

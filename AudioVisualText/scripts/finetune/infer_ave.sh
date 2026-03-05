@@ -7,7 +7,10 @@ MASTER_PORT=6668
 RANK=0
 
 llama_ckpt_path=/nethome/rkhan96/flash/weights/Llama-2-7b-chat-hf
-YOUR_CKPT_PARH=${YOUR_CKPT_PARH:-$(ls -dt results/finetune/llama_ave/checkpoint-* 2>/dev/null | head -n 1)}
+YOUR_CKPT_PARH=${YOUR_CKPT_PARH:?Set YOUR_CKPT_PARH to the run directory (e.g. results/finetune/llama2_ave_bf16_question_bw0.5_20250305_143022)}
+export CROSS_ATTN_KV_MODE=${CROSS_ATTN_KV_MODE:-question}
+PRECISION=${PRECISION:-bf16}
+BLC_WEIGHT=${BLC_WEIGHT:-1}
 
 if [ "$NPROC_PER_NODE" -le 0 ]; then
     NPROC_PER_NODE=1
@@ -38,6 +41,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --llm_name llama \
     --reserved_modality None \
     --loramethod test \
+    --cross_attn_kv_mode $CROSS_ATTN_KV_MODE \
     --model_name_or_path $llama_ckpt_path \
     --freeze_backbone True \
     --lora_enable True \
@@ -45,9 +49,9 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --lora_r 444 \
     --lora_alpha 16 \
     --lora_dropout 0.05 \
-    --blc_weight 1 \
+    --blc_weight $BLC_WEIGHT \
     --blc_alpha 1 \
-    --bf16 True \
+    --bf16 $([ "$PRECISION" = "bf16" ] && echo True || echo False) \
     --tf32 False \
     --fp16 False \
     --ckpt_dir $YOUR_CKPT_PARH \
