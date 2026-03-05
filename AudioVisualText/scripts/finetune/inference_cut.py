@@ -136,6 +136,7 @@ def train(attn_implementation=None):
             r = lora_rank, 
             loramethod= training_args.loramethod,
             reserved_modality=training_args.reserved_modality,
+            cross_attn_kv_mode=training_args.cross_attn_kv_mode,
             lora_alpha = lora_alpha,
             lora_dropout = lora_dropout,
             lora_nums = lora_nums,
@@ -208,4 +209,3 @@ def train(attn_implementation=None):
 
 if __name__ == "__main__":
     train()
-
