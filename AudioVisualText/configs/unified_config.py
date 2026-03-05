@@ -97,6 +97,10 @@ class TrainingArguments(transformers.TrainingArguments):
     ## my
     reserved_modality: str = field(default=None)
     loramethod: str = field(default=None)
+    cross_attn_kv_mode: str = field(
+        default="question",
+        metadata={"help": "Cross-attn KV source for LoRA branches: question or full_text."},
+    )
     blc_alpha: float = field(default=0.5)
     blc_weight: float = field(default=0.5)
 
