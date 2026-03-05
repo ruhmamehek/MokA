@@ -378,17 +378,27 @@ class Linear(nn.Linear, LoraLayer):
 
 
     def forward(self, x: torch.Tensor, modality_mask:List[torch.Tensor]=None):
-        result = F.linear(x, transpose(self.weight, self.fan_in_fan_out), bias=self.bias)        
+        # Ensure inputs and weights share dtype (avoid float vs bf16 mismatch)
+        weight = transpose(self.weight, self.fan_in_fan_out)
+        if x.dtype != weight.dtype:
+            x = x.to(weight.dtype)
+        bias = self.bias
+        if bias is not None and bias.dtype != x.dtype:
+            bias = bias.to(x.dtype)
+        result = F.linear(x, weight, bias=bias)
 
 
         ## infer not first forward only text token
         if(('test' in self.loramethod) &(x.size(1)==1) ):
-            # only text token
-            output_a=getattr(self, f"lora_A0")(self.lora_dropout(x))*self.scaling[0]
-            input_b=output_a
-            output_b=getattr(self, f"lora_B0")(input_b)
+            # only text token; cast to lora A/B weight dtype to avoid float vs bf16
+            lora_a0 = getattr(self, "lora_A0")
+            lora_b0 = getattr(self, "lora_B0")
+            inp_a = self.lora_dropout(x).to(lora_a0.weight.dtype)
+            output_a = lora_a0(inp_a) * self.scaling[0]
+            input_b = output_a.to(lora_b0.weight.dtype)
+            output_b = lora_b0(input_b)
 
-            result=output_b+result
+            result = output_b + result
 
             return result
 
@@ -396,10 +406,11 @@ class Linear(nn.Linear, LoraLayer):
         ## infer first forward
         if(('test' in self.loramethod) &(x.size(1)!=1) ):
 
-            text_mask = modality_mask[0]
-            video_mask = modality_mask[1]
-            audio_mask = modality_mask[2]
-            question_mask = modality_mask[3]
+            # Cast modality masks to match x dtype to avoid promotion to float32
+            text_mask = modality_mask[0].to(dtype=x.dtype)
+            video_mask = modality_mask[1].to(dtype=x.dtype)
+            audio_mask = modality_mask[2].to(dtype=x.dtype)
+            question_mask = modality_mask[3].to(dtype=x.dtype)
 
             kv_mask = self._select_kv_mask(text_mask=text_mask, question_mask=question_mask)
             ## train process
@@ -412,10 +423,11 @@ class Linear(nn.Linear, LoraLayer):
 
             #### get question mask
 
-            output_a=[]
+            output_a = []
             for i in range(self.lora_num):
-                output_a.append(getattr(self, f"lora_A{i}")(self.lora_dropout(only_inputs[i]))*self.scaling[0])
-
+                la = getattr(self, f"lora_A{i}")
+                inp = self.lora_dropout(only_inputs[i]).to(la.weight.dtype)
+                output_a.append(la(inp) * self.scaling[0])
 
             ### video_token: cross attention per sample
             video_token=output_a[1]
@@ -466,11 +478,12 @@ class Linear(nn.Linear, LoraLayer):
                 new_audio[i,:,:]=audio_token[i,:,:]+attention_outputs*self.blc_weight
 
 
-            input_b=[output_a[0],new_video,new_audio]
-            input_b=sum(input_b)
+            input_b = [output_a[0], new_video, new_audio]
+            input_b = sum(input_b)
 
-
-            output_b=getattr(self, f"lora_B0")(input_b)
+            lora_b0 = getattr(self, "lora_B0")
+            input_b = input_b.to(lora_b0.weight.dtype)
+            output_b = lora_b0(input_b)
 
 
             result=output_b+result
