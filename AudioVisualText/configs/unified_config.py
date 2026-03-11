@@ -101,6 +101,14 @@ class TrainingArguments(transformers.TrainingArguments):
         default="question",
         metadata={"help": "Cross-attn KV source for LoRA branches: question or full_text."},
     )
+    cross_modal_mode: str = field(
+        default="trilinear",
+        metadata={"help": "Cross-modal fusion mode for LoRA: pairwise or trilinear."},
+    )
+    trilinear_pack_tokens: bool = field(
+        default=False,
+        metadata={"help": "If True, compact active tokens before Triton trilinear attention."},
+    )
     blc_alpha: float = field(default=0.5)
     blc_weight: float = field(default=0.5)
 

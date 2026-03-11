@@ -7,8 +7,9 @@ MASTER_PORT=6668
 RANK=0
 
 llama_ckpt_path=/nethome/rkhan96/flash/weights/Llama-2-7b-chat-hf
-YOUR_CKPT_PARH=${YOUR_CKPT_PARH:?Set YOUR_CKPT_PARH to the run directory (e.g. results/finetune/llama2_ave_bf16_question_bw0.5_20250305_143022)}
+YOUR_CKPT_PARH=${YOUR_CKPT_PARH:?Set YOUR_CKPT_PARH to the run directory (e.g. results/finetune/llama2_ave_bf16_question_moka_bw0.5_... or ..._question_trilinear_bw0.5_...)}
 export CROSS_ATTN_KV_MODE=${CROSS_ATTN_KV_MODE:-question}
+export CROSS_MODAL_MODE=${CROSS_MODAL_MODE:-trilinear}
 PRECISION=${PRECISION:-bf16}
 BLC_WEIGHT=${BLC_WEIGHT:-1}
 
@@ -42,6 +43,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --reserved_modality None \
     --loramethod test \
     --cross_attn_kv_mode $CROSS_ATTN_KV_MODE \
+    --cross_modal_mode $CROSS_MODAL_MODE \
     --model_name_or_path $llama_ckpt_path \
     --freeze_backbone True \
     --lora_enable True \
@@ -66,4 +68,10 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --audio_branch True \
     --BEATs_ckpt_path /nethome/rkhan96/flash/weights/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
     --audio_query_token_nums 32 \
-    --output_dir 'not_used' \
+    --output_dir 'not_used'
+
+# After inference, automatically run AVE evaluation and write metrics next to predictions.
+python scripts/evaluation/ave_eval.py \
+    --jsonl_path "$YOUR_CKPT_PARH/inference_results/inference_ave.jsonl" \
+    --annotations_path "AVE_data/annotations.txt" \
+    --output_metrics_path "$YOUR_CKPT_PARH/inference_results/metrics.jsonl" \

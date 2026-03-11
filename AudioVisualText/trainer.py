@@ -362,9 +362,9 @@ class UnifiedTrainer(Trainer):
 
         # Save optimizer and scheduler
         # self._save_optimizer_and_scheduler(output_dir)
-        # # Save RNG state
         # self._save_rng_state(output_dir)
-        # self.state.save_to_json(os.path.join(output_dir, TRAINER_STATE_NAME))
+        if self.args.local_rank == 0 or self.args.local_rank == -1:
+            self.state.save_to_json(os.path.join(output_dir, TRAINER_STATE_NAME))
         # self.args.distributed_state.wait_for_everyone()
         # else:
         #     super(VideoLLaMA2Trainer, self)._save_checkpoint(model, trial, metrics)
