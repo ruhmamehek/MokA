@@ -23,10 +23,9 @@ def train(attn_implementation=None):
     # print('lalala')
     # return
     global local_rank
-    set_seed(42)
-
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    set_seed(training_args.seed)
 
     output_dir = training_args.output_dir
     saved_config = {

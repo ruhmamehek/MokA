@@ -94,10 +94,9 @@ def inference(dataloader,ckpt_dir,model,tokenizer,task):
 
 def train(attn_implementation=None):
     global local_rank
-    set_seed(42)
-
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments, InferenceArguments))
     model_args, data_args, training_args, infer_args = parser.parse_args_into_dataclasses()
+    set_seed(training_args.seed)
 
     if model_args.llm_name == 'llama':
         d_model = 4096

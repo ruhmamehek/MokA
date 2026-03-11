@@ -1,4 +1,7 @@
 #!/bin/bash
+#SBATCH --partition=overcap
+#SBATCH --requeue
+#SBATCH --open-mode=append
 
 # Environment Variables
 WORLD_SIZE=1
@@ -75,6 +78,7 @@ fi
 DEEPSPEED_CONFIG=${DEEPSPEED_CONFIG:-deepspeed/stage2-offload.json}
 export TOKENIZERS_PARALLELISM='true'
 export ASCEND_LAUNCH_BLOCKING='1'
+SEED=${SEED:-42}
 
 torchrun --nproc_per_node $NPROC_PER_NODE \
     --master_port $MASTER_PORT \
@@ -113,6 +117,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE \
     --BEATs_ckpt_path /nethome/rkhan96/flash/weights/BEATs/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt \
     --audio_query_token_nums 32 \
     --output_dir $OUTPUT_DIR \
+    --seed $SEED \
     --num_train_epochs $NUM_EPOCHS \
     --per_device_train_batch_size $LOCAL_BATCH_SIZE \
     --per_device_eval_batch_size $LOCAL_BATCH_SIZE \
